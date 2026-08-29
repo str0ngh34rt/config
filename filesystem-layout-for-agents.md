@@ -17,15 +17,15 @@ All agent workspace data lives under the root projects directory (`/projects`). 
 
 ```text
 /projects/
-├── <project-name>/
-│   ├── bare.git/             # Central bare Git repository
-│   └── worktrees/
-│       ├── main/             # Primary worktree (main branch)
-│       │   └── .tmp/         # Temporary scratch space for main
-│       ├── agent-task-1/     # Worktree for Task 1
-│       │   └── .tmp/         # Temporary scratch space for Task 1
-│       └── agent-task-2/     # Worktree for Task 2
-│           └── .tmp/         # Temporary scratch space for Task 2
+└── <project-name>/
+    ├── bare.git/             # Central bare Git repository
+    └── worktrees/
+        ├── main/             # Primary worktree (main branch)
+        │   └── .tmp/         # Temporary scratch space for main
+        ├── agent-task-1/     # Worktree for Task 1
+        │   └── .tmp/         # Temporary scratch space for Task 1
+        └── agent-task-2/     # Worktree for Task 2
+            └── .tmp/         # Temporary scratch space for Task 2
 ```
 
 ## Setup Instructions
