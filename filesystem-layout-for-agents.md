@@ -27,23 +27,28 @@ Replace the following placeholders if your environment uses different account na
 
 ## Step 1: Create the Shared Group & Users
 
-1. Create the `developers` group:
+1. Create the `agent` user:
+   ```bash
+   sudo useradd -m -s /bin/bash agent
+   ```
+
+2. Create the `developers` group:
    ```bash
    sudo groupadd developers
    ```
 
-2. Add your primary user and the agent user to the group:
+3. Add your primary user and the agent user to the group:
    ```bash
    sudo usermod -aG developers strongheart
    sudo usermod -aG developers agent
    ```
 
-3. Ensure the agent account has access to system rendering and virtualization groups:
+4. Ensure the agent account has access to system rendering and virtualization groups:
    ```bash
    sudo usermod -aG render,video developers agent
    ```
 
-4. Refresh your current terminal group membership:
+5. Refresh your current terminal group membership:
    ```bash
    newgrp developers
    ```
