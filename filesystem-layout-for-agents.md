@@ -86,14 +86,14 @@ To prevent agents or IDEs from creating files that lock out the other user, conf
 
 1. Set directory ownership and the setgid bit (`2775`):
    ```bash
-   sudo chown -R $USER:developers /projects
+   sudo chown -R "$USER":developers /projects
    sudo chmod -R 2775 /projects
    ```
 
 2. Apply default POSIX ACLs to enforce group write inheritance on all future child items:
    ```bash
    sudo setfacl -d -m g:developers:rwx /projects
-   sudo setfacl -d -m u:$USER:rwx /projects
+   sudo setfacl -d -m u:"$USER":rwx /projects
    ```
 
 ---
