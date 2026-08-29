@@ -1,4 +1,4 @@
-# How to Set Up a Shared Multi-Agent Filesystem Layout on Ubuntu
+# How to Set Up a Shared Multi-Agent Workspace Layout on Ubuntu
 
 This guide details how to establish a clean, collaborative directory structure and permission model for hosting git repositories and worktrees shared between a primary human account and unprivileged AI agent runner accounts.
 
@@ -9,7 +9,7 @@ This guide details how to establish a clean, collaborative directory structure a
 When working alongside local AI agents, the goal is to grant agents full access to project repositories while protecting your personal home directory, SSH keys, and browser credentials. This configuration uses:
 
 1. **A dedicated shared group (`developers`)** with POSIX Access Control Lists (ACLs) for automatic file permission inheritance.
-2. **A standardized root layout (`/srv/projects/`)** outside personal home directories.
+2. **A standardized root layout (`/projects/`)** outside personal home directories.
 3. **An isolated, unprivileged system account (`agent`)** designed to execute agent tasks and run containerized workloads (e.g., via Rootless Podman).
 
 ---
@@ -51,10 +51,10 @@ Replace the following placeholders if your environment uses different account na
 
 ## Step 2: Establish the Workspace Directory Structure
 
-Keep all shared repositories, active worktrees, and isolated agent runtimes contained within `/srv/projects/`. 
+Keep all shared repositories, active worktrees, and isolated agent runtimes contained within `/projects/`. 
 
 ```text
-/srv/projects/
+/projects/
 ├── <project-name>/
 │   ├── bare.git/             # Bare repository or main git clone
 │   ├── worktrees/            # Active branch worktrees
@@ -66,35 +66,35 @@ Keep all shared repositories, active worktrees, and isolated agent runtimes cont
 
 Create the root projects directory:
 ```bash
-sudo mkdir -p /srv/projects
+sudo mkdir -p /projects
 ```
 
 ---
 
 ## Step 3: Configure POSIX ACLs for Permission Inheritance
 
-To prevent agents or IDEs from creating files that lock out the other user, configure POSIX ACL default inheritance rules on `/srv/projects/`. Any file or directory created within this tree will automatically inherit read, write, and execute permissions for the `developers` group.
+To prevent agents or IDEs from creating files that lock out the other user, configure POSIX ACL default inheritance rules on `/projects/`. Any file or directory created within this tree will automatically inherit read, write, and execute permissions for the `developers` group.
 
 1. Set directory ownership and the setgid bit (`2775`):
    ```bash
-   sudo chown -R strongheart:developers /srv/projects
-   sudo chmod -R 2775 /srv/projects
+   sudo chown -R strongheart:developers /projects
+   sudo chmod -R 2775 /projects
    ```
 
 2. Apply default POSIX ACLs to enforce group write inheritance on all future child items:
    ```bash
-   sudo setfacl -d -m g:developers:rwx /srv/projects
-   sudo setfacl -d -m u:strongheart:rwx /srv/projects
+   sudo setfacl -d -m g:developers:rwx /projects
+   sudo setfacl -d -m u:strongheart:rwx /projects
    ```
 
 ---
 
 ## Step 4: Configure Git for Shared Worktrees
 
-When initializing or cloning repositories under `/srv/projects/`, configure Git to maintain group-write privileges on objects and ref updates:
+When initializing or cloning repositories under `/projects/`, configure Git to maintain group-write privileges on objects and ref updates:
 
 ```bash
-cd /srv/projects/<project-name>
+cd /projects/<project-name>
 git config core.sharedRepository group
 ```
 
@@ -112,7 +112,7 @@ Example launch command for an agent session bound to `feature-a`:
 podman run --rm -it \
   --user 1000:1000 \
   --userns keep-id \
-  --volume /srv/projects/hades/worktrees/feature-a:/workspace:Z \
+  --volume /projects/hades/worktrees/feature-a:/workspace:Z \
   --workdir /workspace \
   agent-dev-image:latest
 ```
@@ -128,11 +128,11 @@ Verify that permissions and group inheritance are functioning correctly:
 
 1. Check directory ACL settings:
    ```bash
-   getfacl /srv/projects
+   getfacl /projects
    ```
 2. Test file creation from the `agent` account:
    ```bash
-   sudo -u agent touch /srv/projects/test-file
-   ls -l /srv/projects/test-file
+   sudo -u agent touch /projects/test-file
+   ls -l /projects/test-file
    ```
    *The test file should reflect ownership by `agent:developers` with group write permissions (`-rw-rw-r--+`), allowing `strongheart` to edit or delete it without `sudo`.*
