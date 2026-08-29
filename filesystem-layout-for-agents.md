@@ -1,15 +1,20 @@
 # Filesystem Layout for Agents
 
-This document details how to establish a clean, collaborative directory structure and permission model for hosting git repositories and worktrees shared between a primary human account and unprivileged AI agent runner accounts.
+Running local AI agents inside your personal home directory exposes sensitive assets to unprivileged execution. Unsanitized prompt outputs or malicious tools can read your SSH keys, personal configurations, and browser credentials. 
+
+This document defines a secure filesystem layout and permission model for agent workloads. The layout isolates repositories under `/projects` and uses POSIX Access Control Lists (ACLs) to manage access between your primary account and an unprivileged agent user.
 
 ## Overview
 
-When working alongside local AI agents, the goal is to grant agents full access to project repositories while protecting your personal home directory, SSH keys, and browser credentials. This configuration uses:
+The layout divides project responsibilities between two user roles operating within a shared `projects` group.
 
-1. **A dedicated shared group (`developers`)** with POSIX Access Control Lists (ACLs) for automatic file permission inheritance.
-2. **A standardized root layout (`/projects/`)** outside personal home directories.
-3. **An isolated, unprivileged system account (`agent`)** designed to execute agent tasks and run containerized workloads (e.g., via Rootless Podman).
-4. **Worktree-isolated temporary directories (`.tmp/`)** for session scratchpads, task plans, and local logs.
+| Feature / Responsibility | Primary Human User (`$USER`)                        | Agent Runner (`agent`)                                 |
+| ------------------------ | --------------------------------------------------- | ------------------------------------------------------ |
+| **Account Type**         | Primary interactive user account                    | Unprivileged system user account                       |
+| **Directory Scope**      | Full access to home directory and `/projects`       | Access restricted exclusively to `/projects`           |
+| **Git Operations**       | Clones `bare.git/`, manages branches, pushes remote | Works within assigned `worktrees/` branches            |
+| **Task Execution**       | Direct terminal and interactive tool usage          | Automated workflows and Rootless Podman containers     |
+| **Scratchpad Space**     | Shared workspace access                             | Writes logs, plans, and state to local `.tmp/`         |
 
 ## Directory Structure
 
