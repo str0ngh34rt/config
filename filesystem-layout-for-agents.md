@@ -114,13 +114,3 @@ cd "/projects/${PROJECT_NAME}"
 git --git-dir=bare.git worktree add worktrees/agent-task-1 -b feature/task-1
 mkdir -p worktrees/agent-task-1/.tmp
 ```
-
----
-
-## Worktree Verification
-
-List active worktrees to verify the setup:
-
-```bash
-git --git-dir=/projects/${PROJECT_NAME}/bare.git worktree list
-```
