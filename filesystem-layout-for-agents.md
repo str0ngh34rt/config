@@ -1,162 +1,124 @@
-# How to Set Up a Shared Multi-Agent Workspace Layout on Ubuntu
+# Filesystem Layout for Agents
 
-This guide details how to establish a clean, collaborative directory structure and permission model for hosting git repositories and worktrees shared between a primary human account and unprivileged AI agent runner accounts.
+This document defines the standard directory structure and setup procedure for agent-based development workflows.
 
----
+## Directory Structure
 
-## Overview
-
-When working alongside local AI agents, the goal is to grant agents full access to project repositories while protecting your personal home directory, SSH keys, and browser credentials. This configuration uses:
-
-1. **A dedicated shared group (`developers`)** with POSIX Access Control Lists (ACLs) for automatic file permission inheritance.
-2. **A standardized root layout (`/projects/`)** outside personal home directories.
-3. **An isolated, unprivileged system account (`agent`)** designed to execute agent tasks and run containerized workloads (e.g., via Rootless Podman).
-4. **Worktree-isolated temporary directories (`.tmp/`)** for session scratchpads, task plans, and local logs.
-
----
-
-## Prerequisites
-
-Replace the following placeholders if your environment uses different account names:
-
-* `<PRIMARY_USER>`: Your primary Ubuntu login username (example: `strongheart`; henceforth: `$USER`).
-* `<AGENT_USER>`: The unprivileged system user running agent tasks (example: `agent`).
-* `<SHARED_GROUP>`: The collaboration group (example: `developers`).
-
----
-
-## Step 1: Create the Shared Group & Users
-
-1. Create the `agent` user:
-   ```bash
-   sudo useradd -m -s /bin/bash agent
-   ```
-
-2. Create the `developers` group:
-   ```bash
-   sudo groupadd developers
-   ```
-
-3. Add your primary user and the agent user to the group:
-   ```bash
-   sudo usermod -aG developers $USER
-   sudo usermod -aG developers agent
-   ```
-
-4. Ensure the agent account has access to system rendering and virtualization groups:
-   ```bash
-   sudo usermod -aG render,video agent
-   ```
-
-5. Refresh your current shell session to load the new group membership:
-   ```bash
-   exec su -l $USER
-   ```
-   *(Verify membership by running `groups`—you should see `developers` listed).*
-
----
-
-## Step 2: Establish the Workspace Directory Structure
-
-Keep all shared repositories and active worktrees contained within `/projects/`. 
+All agent workspace data lives under the root projects directory (`/projects`). Each project gets its own directory containing a central bare Git repository (`.git`), individual worktrees, and a temporary scratch space (`.tmp/`) for uncommitted state.
 
 ```text
 /projects/
 ├── <project-name>/
-│   ├── bare.git/             # Bare repository database
-│   └── worktrees/            # Active branch worktrees
-│       ├── main/             # Main branch worktree (human/primary)
-│       │   └── .tmp/         # Worktree-scoped scratchpad & build logs
-│       ├── feature-a/        # Feature worktree (agent A)
-│       │   └── .tmp/         # Worktree-scoped scratchpad & build logs
-│       └── feature-b/        # Feature worktree (agent B)
-│           └── .tmp/         # Worktree-scoped scratchpad & build logs
-```
-
-Create the root projects directory:
-```bash
-sudo mkdir /projects
+│   ├── .git/                 # Central bare Git repository
+│   ├── .tmp/                 # Project-wide temporary scratch space
+│   ├── main/                 # Primary worktree (main branch)
+│   ├── agent-task-1/         # Dedicated worktree for Task 1
+│   └── agent-task-2/         # Dedicated worktree for Task 2
 ```
 
 ---
 
-## Step 3: Configure POSIX ACLs for Permission Inheritance
+## Setup Instructions
 
-To prevent agents or IDEs from creating files that lock out the other user, configure POSIX ACL default inheritance rules on `/projects/`. Any file or directory created within this tree will automatically inherit read, write, and execute permissions for the `developers` group.
+### 1. Base Setup & Permissions
 
-1. Set directory ownership and the setgid bit (`2775`):
-   ```bash
-   sudo chown -R "$USER":developers /projects
-   sudo chmod -R 2775 /projects
-   ```
-
-2. Apply default POSIX ACLs to enforce group write inheritance on all future child items:
-   ```bash
-   sudo setfacl -d -m g:developers:rwx /projects
-   sudo setfacl -d -m u:"$USER":rwx /projects
-   ```
-
----
-
-## Step 4: Configure Git & Defense-in-Depth Excludes
-
-When initializing or cloning repositories under `/projects/`, configure Git to maintain group-write privileges on objects and ref updates. 
-
-### 1. Enable Shared Repository Mode
-```bash
-cd /projects/<project-name>/bare.git
-git config core.sharedRepository group
-```
-
-Ensure that both your local environment and the `agent` account operate with a `umask` of `002` when working inside this directory so new files remain group-writable by default (`rw-rw-r--` / `rwxrwxr-x`).
-
-### 2. Standardize Repository `.gitignore`
-Add `.tmp/` to your project's committed `.gitignore` file so all worktrees automatically exclude temporary agent files:
-```gitignore
-# Temporary agent scratchpads, plans, and build outputs
-.tmp/
-```
-
-### 3. Apply Local Defense-in-Depth Exclusion
-To ensure an agent cannot commit `.tmp/` files even if it modifies or deletes `.gitignore` inside its worktree, add `.tmp/` to the unversioned repository database exclude file:
+Create the root directory for all projects and assign shared access to your user and the agent user.
 
 ```bash
-echo ".tmp/" >> /projects/<project-name>/bare.git/info/exclude
+# Define user and group variables
+HUMAN_USER="$USER"
+AGENT_USER="agent"
+SHARED_GROUP="projects"
+
+# Create shared group and add users
+sudo groupadd -f "${SHARED_GROUP}"
+sudo usermod -aG "${SHARED_GROUP}" "${HUMAN_USER}"
+sudo usermod -aG "${SHARED_GROUP}" "${AGENT_USER}"
+
+# Create root directory and set group ownership
+sudo mkdir -p /projects
+sudo chown -R :"${SHARED_GROUP}" /projects
+
+# Set permissions and setgid bit (new files inherit group ownership)
+sudo chmod 2775 /projects
 ```
 
 ---
 
-## Step 5: (Optional) Isolate Agents via Rootless Podman
+### 2. Project Setup and Bare Clone Initialization
 
-To restrict an agent session so it cannot view files outside its designated project worktree, run the agent process inside a Rootless Podman container scoped to that directory.
+Before creating worktrees, create the project directory and initialize the bare Git repository in `.git`.
 
-Example launch command for an agent session bound to `feature-a`:
+#### Option A: Clone an Existing Repository
+
+Clone a remote repository into the `.git` directory:
 
 ```bash
-podman run --rm -it \
-  --user 1000:1000 \
-  --userns keep-id \
-  --volume /projects/hades/worktrees/feature-a:/workspace:Z \
-  --workdir /workspace \
-  agent-dev-image:latest
+PROJECT_NAME="my-project"
+REPO_URL="git@github.com:user/my-project.git"
+
+mkdir -p "/projects/${PROJECT_NAME}"
+git clone --bare "${REPO_URL}" "/projects/${PROJECT_NAME}/.git"
+
+# Configure fetch refspec for worktree branch tracking
+cd "/projects/${PROJECT_NAME}/.git"
+git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
+git fetch origin
 ```
 
-* `--userns keep-id`: Aligns container user IDs with host user IDs so created files remain seamlessly accessible to your IDE running under `$USER`.
-* `--volume`: Binds only the target worktree directory into the container environment, preventing access to host system files or `/home/$USER`.
+#### Option B: Initialize a New Local Project
+
+Initialize a new empty bare repository:
+
+```bash
+PROJECT_NAME="my-project"
+
+mkdir -p "/projects/${PROJECT_NAME}/.git"
+git init --bare "/projects/${PROJECT_NAME}/.git"
+```
 
 ---
 
-## Verification
+### 3. Temporary Scratch Space (`.tmp/`) & Exclude Rules
 
-Verify that permissions and group inheritance are functioning correctly:
+Create a `.tmp/` directory at the project root for temporary files, build outputs, or untracked agent artifacts. Ensure local Git settings ignore this path across all worktrees.
 
-1. Check directory ACL settings:
-   ```bash
-   getfacl /projects
-   ```
-2. Test file creation from the `agent` account:
-   ```bash
-   sudo -u agent touch /projects/test-file
-   ls -l /projects/test-file
-   ```
-   *The test file should reflect ownership by `agent:developers` with group write permissions (`-rw-rw-r--+`), allowing `$USER` to edit or delete it without `sudo`.*
+```bash
+# Create the scratch space directory
+mkdir -p "/projects/${PROJECT_NAME}/.tmp"
+
+# Ignore .tmp/ globally across all project worktrees via repository exclude
+echo ".tmp/" >> "/projects/${PROJECT_NAME}/.git/info/exclude"
+```
+
+> **Note:** To prevent local worktree instances from committing `.tmp/` if referenced inside individual working trees, ensure `.gitignore` in the target repository also includes `.tmp/`.
+
+---
+
+### 4. Worktree Setup
+
+After setting up `.git` and configuration rules, create individual worktrees for the primary branch and agent tasks.
+
+#### Create Main Branch Worktree
+
+```bash
+cd "/projects/${PROJECT_NAME}"
+git --git-dir=.git worktree add main main
+```
+
+#### Create Task-Specific Worktrees
+
+```bash
+cd "/projects/${PROJECT_NAME}"
+git --git-dir=.git worktree add agent-task-1 -b feature/task-1
+```
+
+---
+
+## Worktree Verification
+
+List active worktrees to verify the setup:
+
+```bash
+git --git-dir=.git worktree list
+```
