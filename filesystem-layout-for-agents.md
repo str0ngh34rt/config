@@ -45,7 +45,7 @@ Replace the following placeholders if your environment uses different account na
 
 4. Ensure the agent account has access to system rendering and virtualization groups:
    ```bash
-   sudo usermod -aG render,video developers agent
+   sudo usermod -aG render,video agent
    ```
 
 5. Refresh your current terminal group membership:
