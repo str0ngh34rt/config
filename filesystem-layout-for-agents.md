@@ -48,10 +48,11 @@ Replace the following placeholders if your environment uses different account na
    sudo usermod -aG render,video agent
    ```
 
-5. Refresh your current terminal group membership:
+5. Refresh your current shell session to load the new group membership:
    ```bash
-   newgrp developers
+   exec su -l $USER
    ```
+   *(Verify membership by running `groups`—you should see `developers` listed).*
 
 ---
 
