@@ -75,7 +75,7 @@ Keep all shared repositories and active worktrees contained within `/projects/`.
 
 Create the root projects directory:
 ```bash
-sudo mkdir -p /projects
+sudo mkdir /projects
 ```
 
 ---
