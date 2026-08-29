@@ -53,8 +53,6 @@ sudo chown -R :"${SHARED_GROUP}" /projects
 sudo chmod 2775 /projects
 ```
 
----
-
 ### 2. Project Setup & Bare Clone Initialization
 
 Before creating worktrees, create the project container and initialize `bare.git/`.
