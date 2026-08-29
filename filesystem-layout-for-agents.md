@@ -4,16 +4,19 @@ This document defines the standard directory structure and setup procedure for a
 
 ## Directory Structure
 
-All agent workspace data lives under the root projects directory (`/projects`). Each project gets its own directory containing a central bare Git repository (`.git`), individual worktrees, and a temporary scratch space (`.tmp/`) for uncommitted state.
+All agent workspace data lives under the root projects directory (`/projects`). Each project gets its own directory containing a central bare Git repository (`bare.git/`) and a dedicated `worktrees/` directory. Temporary files and untracked artifacts live inside `.tmp/` within each specific worktree.
 
 ```text
 /projects/
 ├── <project-name>/
-│   ├── .git/                 # Central bare Git repository
-│   ├── .tmp/                 # Project-wide temporary scratch space
-│   ├── main/                 # Primary worktree (main branch)
-│   ├── agent-task-1/         # Dedicated worktree for Task 1
-│   └── agent-task-2/         # Dedicated worktree for Task 2
+│   ├── bare.git/             # Central bare Git repository
+│   └── worktrees/
+│       ├── main/             # Primary worktree (main branch)
+│       │   └── .tmp/         # Temporary scratch space for main
+│       ├── agent-task-1/     # Worktree for Task 1
+│       │   └── .tmp/         # Temporary scratch space for Task 1
+│       └── agent-task-2/     # Worktree for Task 2
+│           └── .tmp/         # Temporary scratch space for Task 2
 ```
 
 ---
@@ -45,23 +48,23 @@ sudo chmod 2775 /projects
 
 ---
 
-### 2. Project Setup and Bare Clone Initialization
+### 2. Project Setup & Bare Clone Initialization
 
-Before creating worktrees, create the project directory and initialize the bare Git repository in `.git`.
+Before creating worktrees, create the project container and initialize `bare.git/`.
 
 #### Option A: Clone an Existing Repository
 
-Clone a remote repository into the `.git` directory:
+Clone a remote repository into `bare.git/`:
 
 ```bash
 PROJECT_NAME="my-project"
 REPO_URL="git@github.com:user/my-project.git"
 
-mkdir -p "/projects/${PROJECT_NAME}"
-git clone --bare "${REPO_URL}" "/projects/${PROJECT_NAME}/.git"
+mkdir -p "/projects/${PROJECT_NAME}/worktrees"
+git clone --bare "${REPO_URL}" "/projects/${PROJECT_NAME}/bare.git"
 
 # Configure fetch refspec for worktree branch tracking
-cd "/projects/${PROJECT_NAME}/.git"
+cd "/projects/${PROJECT_NAME}/bare.git"
 git config remote.origin.fetch "+refs/heads/*:refs/remotes/origin/*"
 git fetch origin
 ```
@@ -73,44 +76,42 @@ Initialize a new empty bare repository:
 ```bash
 PROJECT_NAME="my-project"
 
-mkdir -p "/projects/${PROJECT_NAME}/.git"
-git init --bare "/projects/${PROJECT_NAME}/.git"
+mkdir -p "/projects/${PROJECT_NAME}/worktrees"
+git init --bare "/projects/${PROJECT_NAME}/bare.git"
 ```
 
 ---
 
-### 3. Temporary Scratch Space (`.tmp/`) & Exclude Rules
+### 3. Repository Exclude Configuration
 
-Create a `.tmp/` directory at the project root for temporary files, build outputs, or untracked agent artifacts. Ensure local Git settings ignore this path across all worktrees.
+Configure `bare.git/info/exclude` to ignore `.tmp/` across all present and future worktrees:
 
 ```bash
-# Create the scratch space directory
-mkdir -p "/projects/${PROJECT_NAME}/.tmp"
-
-# Ignore .tmp/ globally across all project worktrees via repository exclude
-echo ".tmp/" >> "/projects/${PROJECT_NAME}/.git/info/exclude"
+echo ".tmp/" >> "/projects/${PROJECT_NAME}/bare.git/info/exclude"
 ```
 
-> **Note:** To prevent local worktree instances from committing `.tmp/` if referenced inside individual working trees, ensure `.gitignore` in the target repository also includes `.tmp/`.
+> **Note:** Ensure `.gitignore` inside the target repository also includes `.tmp/` to prevent accidental commits across environments.
 
 ---
 
 ### 4. Worktree Setup
 
-After setting up `.git` and configuration rules, create individual worktrees for the primary branch and agent tasks.
+Create individual worktrees inside `worktrees/` pointing to `bare.git/`.
 
 #### Create Main Branch Worktree
 
 ```bash
 cd "/projects/${PROJECT_NAME}"
-git --git-dir=.git worktree add main main
+git --git-dir=bare.git worktree add worktrees/main main
+mkdir -p worktrees/main/.tmp
 ```
 
 #### Create Task-Specific Worktrees
 
 ```bash
 cd "/projects/${PROJECT_NAME}"
-git --git-dir=.git worktree add agent-task-1 -b feature/task-1
+git --git-dir=bare.git worktree add worktrees/agent-task-1 -b feature/task-1
+mkdir -p worktrees/agent-task-1/.tmp
 ```
 
 ---
@@ -120,5 +121,5 @@ git --git-dir=.git worktree add agent-task-1 -b feature/task-1
 List active worktrees to verify the setup:
 
 ```bash
-git --git-dir=.git worktree list
+git --git-dir=/projects/${PROJECT_NAME}/bare.git worktree list
 ```
