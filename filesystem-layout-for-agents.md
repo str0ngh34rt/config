@@ -19,7 +19,7 @@ When working alongside local AI agents, the goal is to grant agents full access 
 
 Replace the following placeholders if your environment uses different account names:
 
-* `<PRIMARY_USER>`: Your primary Ubuntu login username (example: `strongheart`).
+* `<PRIMARY_USER>`: Your primary Ubuntu login username (example: `strongheart`; henceforth: `$USER`).
 * `<AGENT_USER>`: The unprivileged system user running agent tasks (example: `agent`).
 * `<SHARED_GROUP>`: The collaboration group (example: `developers`).
 
@@ -39,7 +39,7 @@ Replace the following placeholders if your environment uses different account na
 
 3. Add your primary user and the agent user to the group:
    ```bash
-   sudo usermod -aG developers strongheart
+   sudo usermod -aG developers $USER
    sudo usermod -aG developers agent
    ```
 
@@ -86,14 +86,14 @@ To prevent agents or IDEs from creating files that lock out the other user, conf
 
 1. Set directory ownership and the setgid bit (`2775`):
    ```bash
-   sudo chown -R strongheart:developers /projects
+   sudo chown -R $USER:developers /projects
    sudo chmod -R 2775 /projects
    ```
 
 2. Apply default POSIX ACLs to enforce group write inheritance on all future child items:
    ```bash
    sudo setfacl -d -m g:developers:rwx /projects
-   sudo setfacl -d -m u:strongheart:rwx /projects
+   sudo setfacl -d -m u:$USER:rwx /projects
    ```
 
 ---
@@ -141,8 +141,8 @@ podman run --rm -it \
   agent-dev-image:latest
 ```
 
-* `--userns keep-id`: Aligns container user IDs with host user IDs so created files remain seamlessly accessible to your IDE running under `strongheart`.
-* `--volume`: Binds only the target worktree directory into the container environment, preventing access to host system files or `/home/strongheart`.
+* `--userns keep-id`: Aligns container user IDs with host user IDs so created files remain seamlessly accessible to your IDE running under `$USER`.
+* `--volume`: Binds only the target worktree directory into the container environment, preventing access to host system files or `/home/$USER`.
 
 ---
 
@@ -159,4 +159,4 @@ Verify that permissions and group inheritance are functioning correctly:
    sudo -u agent touch /projects/test-file
    ls -l /projects/test-file
    ```
-   *The test file should reflect ownership by `agent:developers` with group write permissions (`-rw-rw-r--+`), allowing `strongheart` to edit or delete it without `sudo`.*
+   *The test file should reflect ownership by `agent:developers` with group write permissions (`-rw-rw-r--+`), allowing `$USER` to edit or delete it without `sudo`.*
