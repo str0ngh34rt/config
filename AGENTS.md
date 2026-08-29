@@ -22,6 +22,4 @@ When a repository has no more specific rule, use the applicable Google style gui
 
 ## Workflow
 
-Plan before implementation. Update the plan when new evidence changes your understanding.
-
 Keep changes small and reviewable. Target no more than 250 changed lines. Prefer fewer.
