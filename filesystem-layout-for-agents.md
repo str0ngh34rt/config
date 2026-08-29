@@ -28,8 +28,6 @@ All agent workspace data lives under the root projects directory (`/projects`). 
 │           └── .tmp/         # Temporary scratch space for Task 2
 ```
 
----
-
 ## Setup Instructions
 
 ### 1. Base Setup & Permissions
@@ -89,8 +87,6 @@ mkdir -p "/projects/${PROJECT_NAME}/worktrees"
 git init --bare "/projects/${PROJECT_NAME}/bare.git"
 ```
 
----
-
 ### 3. Repository Exclude Configuration
 
 Configure `bare.git/info/exclude` to ignore `.tmp/` across all present and future worktrees:
@@ -100,8 +96,6 @@ echo ".tmp/" >> "/projects/${PROJECT_NAME}/bare.git/info/exclude"
 ```
 
 > **Note:** Ensure `.gitignore` inside the target repository also includes `.tmp/` to prevent accidental commits across environments.
-
----
 
 ### 4. Worktree Setup
 
