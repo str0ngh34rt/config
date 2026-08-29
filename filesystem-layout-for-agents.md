@@ -11,6 +11,7 @@ When working alongside local AI agents, the goal is to grant agents full access 
 1. **A dedicated shared group (`developers`)** with POSIX Access Control Lists (ACLs) for automatic file permission inheritance.
 2. **A standardized root layout (`/projects/`)** outside personal home directories.
 3. **An isolated, unprivileged system account (`agent`)** designed to execute agent tasks and run containerized workloads (e.g., via Rootless Podman).
+4. **Worktree-isolated temporary directories (`.tmp/`)** for session scratchpads, task plans, and local logs.
 
 ---
 
@@ -51,17 +52,19 @@ Replace the following placeholders if your environment uses different account na
 
 ## Step 2: Establish the Workspace Directory Structure
 
-Keep all shared repositories, active worktrees, and isolated agent runtimes contained within `/projects/`. 
+Keep all shared repositories and active worktrees contained within `/projects/`. 
 
 ```text
 /projects/
 ├── <project-name>/
-│   ├── bare.git/             # Bare repository or main git clone
-│   ├── worktrees/            # Active branch worktrees
-│   │   ├── main/             # Main branch worktree (human/primary)
-│   │   ├── feature-a/        # Feature worktree (agent)
-│   │   └── feature-b/        # Feature worktree (agent)
-│   └── .agent-runtime/       # Agent session cache & persistent state
+│   ├── bare.git/             # Bare repository database
+│   └── worktrees/            # Active branch worktrees
+│       ├── main/             # Main branch worktree (human/primary)
+│       │   └── .tmp/         # Worktree-scoped scratchpad & build logs
+│       ├── feature-a/        # Feature worktree (agent A)
+│       │   └── .tmp/         # Worktree-scoped scratchpad & build logs
+│       └── feature-b/        # Feature worktree (agent B)
+│           └── .tmp/         # Worktree-scoped scratchpad & build logs
 ```
 
 Create the root projects directory:
@@ -89,16 +92,31 @@ To prevent agents or IDEs from creating files that lock out the other user, conf
 
 ---
 
-## Step 4: Configure Git for Shared Worktrees
+## Step 4: Configure Git & Defense-in-Depth Excludes
 
-When initializing or cloning repositories under `/projects/`, configure Git to maintain group-write privileges on objects and ref updates:
+When initializing or cloning repositories under `/projects/`, configure Git to maintain group-write privileges on objects and ref updates. 
 
+### 1. Enable Shared Repository Mode
 ```bash
-cd /projects/<project-name>
+cd /projects/<project-name>/bare.git
 git config core.sharedRepository group
 ```
 
 Ensure that both your local environment and the `agent` account operate with a `umask` of `002` when working inside this directory so new files remain group-writable by default (`rw-rw-r--` / `rwxrwxr-x`).
+
+### 2. Standardize Repository `.gitignore`
+Add `.tmp/` to your project's committed `.gitignore` file so all worktrees automatically exclude temporary agent files:
+```gitignore
+# Temporary agent scratchpads, plans, and build outputs
+.tmp/
+```
+
+### 3. Apply Local Defense-in-Depth Exclusion
+To ensure an agent cannot commit `.tmp/` files even if it modifies or deletes `.gitignore` inside its worktree, add `.tmp/` to the unversioned repository database exclude file:
+
+```bash
+echo ".tmp/" >> /projects/<project-name>/bare.git/info/exclude
+```
 
 ---
 
