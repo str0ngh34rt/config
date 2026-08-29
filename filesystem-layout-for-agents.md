@@ -1,6 +1,15 @@
 # Filesystem Layout for Agents
 
-This document defines the standard directory structure and setup procedure for agent-based development workflows.
+This document details how to establish a clean, collaborative directory structure and permission model for hosting git repositories and worktrees shared between a primary human account and unprivileged AI agent runner accounts.
+
+## Overview
+
+When working alongside local AI agents, the goal is to grant agents full access to project repositories while protecting your personal home directory, SSH keys, and browser credentials. This configuration uses:
+
+1. **A dedicated shared group (`developers`)** with POSIX Access Control Lists (ACLs) for automatic file permission inheritance.
+2. **A standardized root layout (`/projects/`)** outside personal home directories.
+3. **An isolated, unprivileged system account (`agent`)** designed to execute agent tasks and run containerized workloads (e.g., via Rootless Podman).
+4. **Worktree-isolated temporary directories (`.tmp/`)** for session scratchpads, task plans, and local logs.
 
 ## Directory Structure
 
