@@ -56,7 +56,37 @@ sudo chown -R :"${SHARED_GROUP}" /projects
 
 # Set permissions and setgid bit (new files inherit group ownership)
 sudo chmod 2775 /projects
+
+# Set access and default ACLs (new files inherit group write permission)
+sudo setfacl -R -m g:"${SHARED_GROUP}":rwX /projects
+sudo setfacl -R -d -m g:"${SHARED_GROUP}":rwx /projects
 ```
+
+> **Note:** The setgid bit and the default ACL do different jobs. The setgid bit gives each new file the
+> `projects` group. It does not give the group write permission. The default ACL gives that permission. Use both.
+
+The default ACL sets the maximum permissions for a new file. The mode of the process that creates the file
+reduces them. With the default umask `022`, Git creates files with mode `0644`. This masks the group entry down
+to read only, and the ACL has no effect. Set umask `002` for both accounts:
+
+```bash
+for U in "${HUMAN_USER}" "${AGENT_USER}"; do
+  echo "umask 002" | sudo tee -a /home/"${U}"/.bashrc
+done
+```
+
+> **Note:** `run-as.md` starts the agent with `sudo -i`, which reads `.bashrc` through the login profile. Confirm
+> the value in the agent session with `umask`. The expected output is `0002`.
+
+Verify the result. Create a file as one user and write to it as the other:
+
+```bash
+sudo -u "${AGENT_USER}" touch /projects/acl-test
+sudo -u "${HUMAN_USER}" tee -a /projects/acl-test <<< "write test"
+sudo rm /projects/acl-test
+```
+
+A `Permission denied` error means the umask is still `022`. Open a new login shell and try again.
 
 ### 2. Project Setup & Bare Clone Initialization
 
@@ -71,7 +101,7 @@ PROJECT_NAME="my-project"
 REPO_URL="git@github.com:user/my-project.git"
 
 mkdir -p "/projects/${PROJECT_NAME}/worktrees"
-git clone --bare "${REPO_URL}" "/projects/${PROJECT_NAME}/bare.git"
+git clone --bare --config core.sharedRepository=group "${REPO_URL}" "/projects/${PROJECT_NAME}/bare.git"
 
 # Configure fetch refspec for worktree branch tracking
 cd "/projects/${PROJECT_NAME}/bare.git"
@@ -87,8 +117,11 @@ Initialize a new empty bare repository:
 PROJECT_NAME="my-project"
 
 mkdir -p "/projects/${PROJECT_NAME}/worktrees"
-git init --bare "/projects/${PROJECT_NAME}/bare.git"
+git init --bare --shared=group "/projects/${PROJECT_NAME}/bare.git"
 ```
+
+> **Note:** `core.sharedRepository=group` makes Git write group-writable objects and refs inside `bare.git/`.
+> Without it, a repack by one user creates files that the other user cannot replace.
 
 ### 3. Repository Exclude Configuration
 
